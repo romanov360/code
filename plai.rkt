@@ -20,6 +20,7 @@
 ;the type Exp. The input should be an S-Exp, like `1, or `{+ 1 {+ 2 3}}.
 
 ;Page 34 following along.
+
 (define (parse s)
   (cond
     [(s-exp-number? s)
@@ -34,6 +35,7 @@
       )
      ]
     ))
+
 ;I mistook ` for ', what is the difference? Code only has 's, and literals
 ;only have `s, but why?
 
@@ -53,5 +55,30 @@
 ;occurs when = resolves to equality between symbols, which `1 is not. The
 ;parser could be improved by checking (s-exp-symbol? (first l)) before
 ;assuming that the getter works. Ah, that's the actual error source, it's
-;the getter s-exp->symbol, on an S-Exp that is not a symbol.
+;the getter s-exp->symbol, on an S-Exp that is not a symbol. Let's try.
+;(s-exp-symbol? `1)
+;(s-exp-symbol? `+)
+;Nice, this is a valid function, like s-exp-number?.
 
+(define (parse1 s)
+  (cond
+    [(s-exp-number? s)
+     (num (s-exp->number s))]
+    [(s-exp-list? s)
+     (let ([l (s-exp->list s)])
+       (
+        if
+          (s-exp-symbol? (first l))
+          (
+               if (symbol=? '+
+                            (s-exp->symbol (first l)))
+                  (plus (parse (second l)) (parse (third l)))
+                  (error 'parse "list not an addition")
+           )
+          (error 'parse "element 0 is not a symbol")
+        )
+      )
+     ]
+    ))
+;(test/exn (parse1 `{1 + 2}) "element 0 is not a symbol")
+;Sweet, it passed.
