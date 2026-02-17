@@ -203,3 +203,85 @@
 ;shallower one, this will not affect the environment in which the more
 ;shallowly bound variable is evaluated.
 
+;Exercise p. 57: what considerations are there when extending single-
+;argument functions to multiple arguments?
+;A: One consideration is evaluation order. I think in C, there is no
+;guarantee about the evaluation order of the arguments passed to a
+;function. This is semantically different from left-to-right
+;evaluation of arguments before they are passed to a function.
+
+;Do Now p. 58: to add functions, how many new Type-Cases need to be added
+;to the abstract syntax?
+;A: functions are defined, locally bound, and called. Local binding is
+;already accomplished by let1E, so two constructs need to be added. varE
+;in its current form cannot support getting the value of a function,  it would
+;need to have one more parameter, which is the function to apply to the
+;arguments in an environment.
+
+;Do Now p. 59: what should \x->x+x evaluate to? Hint: think in terms of types.
+;A: right now Value is either numV or booleanV, so we don't have a suitable
+;Type-Case for what this program would evaluate to. Thinking in terms of types,
+;we would like it to evaluate to type-case of Value that represents it being
+;numV->numV. That would help programs composable. I'm not sure there is a
+;way to extend Value to make it support arbitrary function types, though.
+
+;Exercise p.62: do other languages evaluate the function or body first?
+;A: in Haskell, this program:
+#|
+main = do
+  let a=5
+  a undefined
+|#
+;gives this error:
+;No instance for ‘Num (t0 -> IO ())’ arising from the literal ‘5’
+;which means that it type-checked the function before it evaluated the
+;argument. Otherwise, it would have given a Prelude.undefined error.
+;However, in Python:
+#|
+>>> a=5
+>>> a(1/0)
+ZeroDivisionError: division by zero 
+|#
+;Then, Python evaluated the argument before it type-checked the function.
+;This is opposite of what Haskell did, but like what plait would do.
+
+;Exercise p. 65: run static/dynamic scope example in Stacker.
+#|
+(let ([x 1])
+  (let ([f (lambda (y) x)])
+    (let ([x 2])
+      (f 10))))
+It evaluates to 1. My favorite part was that there were two environments that
+extended the let x=1 environment, which was the let inside it, and the
+environment that calling f produced. That showed why x=1 in that environment.
+|#
+
+#|
+Exercise p. 67: the function and argument expressions are evaluated with the
+dynamic closure, not the function's closure. Is that right?
+A: argument expressions should be evaluated with the dynamic closure, since you
+want to be able to bind new variables after defining the function, and pass them
+into the function as arguments, which would give an error if using the
+function's closure. As for the function expression, it doesn't matter which
+closure is used, since a funV is made from a lamE without respect to the
+environment, and the contents of the environment cannot change the type-case of
+the expression to or from lamE.
+|#
+
+;Do now p. 67: what should this produce?
+#|
+((let ([x 3])
+   (lambda (y) (+ x y)))
+ 4)
+|#
+;A: I think it will produce 7. Elimination turns it into:
+;((lambda (y) (+ 3 y)) 4), which morally should substitute into
+;(+ 3 4) which is 7.
+
+;Exercise p. 68: what should this produce? What does it produce in plait?
+((let ([y 3])
+   (lambda (y) (+ y 1)))
+ 5)
+;I think it should produce 6 in Racket. Somehow, substitution stops when it
+;sees the closure's formal parameter is the symbol being substituted.
+;In plait, it is:
