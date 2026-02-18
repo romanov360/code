@@ -115,7 +115,7 @@
 ;(add : )
 ;Don't know syntax for function of two arguments. Curried?
 ;No, but this helped: https://www.reddit.com/r/Racket/comments/x64395/typed_racket_how_to_type_annotate_a_function_that/
-#|
+
 (add : (Value Value -> Value))
 (define (add v1 v2)
   (type-case Value v1
@@ -126,7 +126,7 @@
     [else (error '+ "expects LHS to be a num")]
     )
   )
-|#
+
 ;Now try to inline.
 ;Well, can't substitute the function body in for (add .. ..), since
 ;you need to call calc on the Exps first to turn them into Values.
@@ -279,9 +279,64 @@ the expression to or from lamE.
 ;(+ 3 4) which is 7.
 
 ;Exercise p. 68: what should this produce? What does it produce in plait?
+#|
 ((let ([y 3])
    (lambda (y) (+ y 1)))
  5)
+|#
 ;I think it should produce 6 in Racket. Somehow, substitution stops when it
 ;sees the closure's formal parameter is the symbol being substituted.
 ;In plait, it is:
+(define-type-alias Env (Hashof Symbol Value))
+(define mt-env (hash empty)) ;; "empty environment"
+(define-type Exp
+  [numE (n : Number)]
+  [plusE (left : Exp) (right : Exp)]
+  [varE (name : Symbol)]
+  [let1E (var : Symbol)
+         (value : Exp)
+         (body : Exp)]
+  [lamE (var : Symbol) (body : Exp)]
+  [appE (fun : Exp) (arg : Exp)])
+(define-type Value
+  [numV (n : Number)]
+  [boolV (b : Boolean)]
+  [funV (var : Symbol) (body : Exp) (nv : Env)]
+  )
+(define (lookup (s : Symbol) (n : Env))
+  (type-case (Optionof Value) (hash-ref n s)
+    [(none) (error s "not bound")]
+    [(some v) v]))
+(extend : (Env Symbol Value -> Env))
+(define (extend old-env new-name value)
+  (hash-set old-env new-name value))
+(interp : (Exp Env -> Value))
+(define (interp e nv)
+  (type-case Exp e
+    [(numE n) (numV n)]
+    [(varE s) (lookup s nv)]
+    [(plusE l r) (add (interp l nv) (interp r nv))]
+    [(lamE v b) (funV v b nv)]
+    [(appE f a) (let ([fv (interp f nv)]
+                      [av (interp a nv)])
+                  (type-case Value fv
+                    [(funV v b nv)
+                     (interp b (extend nv v av))]
+                    [else (error 'app "didn't get a function")]))]
+    [(let1E var val body)
+     (let ([new-env (extend nv
+                            var
+                            (interp val nv))])
+       (interp body new-env))]))
+(test (interp (appE (let1E 'y (numE 3)
+                           (lamE 'y (plusE (varE 'y) (numE '1))))
+                    (numE '5))
+              mt-env)
+      (numV 6))
+#|
+As expected. The reason why it worked is because funV's environment was
+y=numE 3, and its var was y, and the av at app time was 5, so y was set
+to 5 in the environment, overwriting y=numE 3 in the environment coming
+with the funV (closure).
+|#
+
